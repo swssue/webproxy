@@ -14,12 +14,13 @@ int main(void) {
 	p = strchr(buf, '&');
 	*p = '\0';
   
-  // 
-	strcpy(arg1, buf+8);
-	strcpy(arg2, p+9);
+	// strcpy(arg1, buf+8);
+	// strcpy(arg2, p+9);
+  sscanf(buf, "number1=%d", &n1);
+	sscanf(p+1, "number2=%d", &n2);
   // atoi : string을 int 형으로 변환
-	n1 = atoi(arg1);
-	n2 = atoi(arg2);
+	// n1 = atoi(arg1);
+	// n2 = atoi(arg2);
     }
   // html 화면에 출력
     /* Make the response body */
