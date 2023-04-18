@@ -60,7 +60,7 @@ void doit(int fd)
     clienterror(fd, method, "501", "Not Implemented", "Tiny does not implement this method");
     return;
   }
-
+  
   read_requesthdrs(&rio);
   
   /* URI를 파일 이름과 CGI 인자 스트링으로 분석*/
@@ -116,12 +116,14 @@ void read_requesthdrs(rio_t *rp)
   char buf[MAXLINE];
 
   Rio_readlineb(rp, buf, MAXLINE);
+  printf("%s", buf);
   /* 버퍼에 \r\n이 들어왔을 때 종료
     http의 헤더는 \r\n으로 종료된다 */
   while(strcmp(buf, "\r\n")){
     Rio_readlineb(rp, buf, MAXLINE);
     printf("%s", buf);
   }
+  
   return;
 }
 
