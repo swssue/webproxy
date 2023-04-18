@@ -2,6 +2,7 @@
     "files.associations": {
         "wait.h": "c",
         "cstdlib": "c",
-        "inet.h": "c"
+        "inet.h": "c",
+        "cache.h": "c"
     }
 }
