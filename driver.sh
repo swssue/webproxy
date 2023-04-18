@@ -183,6 +183,7 @@ then
 fi
 
 # Make sure we have an existing executable nop-server.py file
+
 if [ ! -x ./nop-server.py ]
 then 
     echo "Error: ./nop-server.py not found or not an executable file."
@@ -299,7 +300,8 @@ wait_for_port_use "${proxy_port}"
 # Run a special blocking nop-server that never responds to requests
 nop_port=$(free_port)
 echo "Starting the blocking NOP server on port ${nop_port}"
-./nop-server.py ${nop_port} &> /dev/null &
+# ./nop-server.py ${nop_port} &> /dev/null &
+python3 nop-server.py ${nop_port} &> /dev/null &
 nop_pid=$!
 
 # Wait for the nop server to start in earnest
@@ -391,7 +393,7 @@ if [ $? -eq 0 ]; then
     echo "Success: Was able to fetch tiny/${FETCH_FILE} from the cache."
 else
     cacheScore=0
-    echo "Failure: Was not able to fetch tiny/${FETCH_FILE} from the proxy cache."
+    echo "Failure: Was not able to fetch tiny/${FETCH_FILE} from the proxy cache."   
 fi
 
 # Kill the proxy

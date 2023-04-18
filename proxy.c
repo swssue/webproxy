@@ -13,21 +13,31 @@
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 
+/*cache struct create*/
+typedef struct cacheStorage {
+  char* cache_path;
+  char* content_buf;
+  cacheStorage * nextStorage;
+  
+} cacheStorage;
+
+
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr =
     "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 "
     "Firefox/10.0.3\r\n";
 
-void doit(int fd);
+int doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *hostname, char *port, char* path);
 int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHeader);
 
 int main(int argc, char **argv) {
-  int listenfd, connfd, server_listenfd;
+  int listenfd, *connfd, server_listenfd;
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
+  pthread_t tid;
 
   /* Check command line args */
   if (argc != 2) {
@@ -38,16 +48,18 @@ int main(int argc, char **argv) {
   listenfd = Open_listenfd(argv[1]);
   while (1) {
     clientlen = sizeof(clientaddr);
-    connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // line:netp:tiny:accept
+    connfd = Malloc(sizeof(int));
+    *connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // line:netp:tiny:accept
     // 소켓 구조체를 호스트와 서비스이름 스트링으로 바꾸기
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
-    doit(connfd);   // line:netp:tiny:doit
-    Close(connfd);  // line:netp:tiny:close
+    Pthread_create(&tid, NULL, thread, connfd);
+    // doit(connfd);   // line:netp:tiny:doit
+    // Close(connfd);  // line:netp:tiny:close
   }
 }
 
-void doit(int fd)
+int doit(int fd)
 {
   int is_static, serverfd, server_connfd;
   struct stat sbuf;
@@ -169,3 +181,15 @@ int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHea
     sprintf(makeHeader,"%s%s%s%s%s%s%s",requestRHR,headerHR,otherHR,user_agent_hdr,"Connection : close\r\n","Proxy-Connection : close\r\n","\r\n");
   
 }
+
+/* Thread routine */
+void *thread(void *vargp) 
+{  
+    int connfd = *((int *)vargp);
+    Pthread_detach(pthread_self()); //line:conc:echoservert:detach
+    Free(vargp);                    //line:conc:echoservert:free
+    doit(connfd);
+    Close(connfd);
+    return NULL;
+}
+/* $end echoservertmain */
