@@ -24,10 +24,10 @@ int parse_uri(char *uri, char *hostname, char *port, char* path);
 int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHeader);
 
 int main(int argc, char **argv) {
-  int listenfd, connfd, server_listenfd;
+  int listenfd, connfd, server_listenfd, server_connfd;
   char hostname[MAXLINE], port[MAXLINE];
-  socklen_t clientlen;
-  struct sockaddr_storage clientaddr;
+  socklen_t clientlen, serverlen;
+  struct sockaddr_storage clientaddr,serveraddr;
 
   /* Check command line args */
   if (argc != 2) {
@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
 
   server_listenfd = Open_listenfd("8000");
   while (1) {
-    connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // line:netp:tiny:accept
+    server_connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // line:netp:tiny:accept
     // 소켓 구조체를 호스트와 서비스이름 스트링으로 바꾸기
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
@@ -72,7 +72,7 @@ void doit(int fd)
   Rio_readlineb(&rio, buf, MAXLINE);
   printf("Request headers: \n");
   printf("%s", buf);
-  sscanf(buf, "%s %s %s", method, uri, version);
+  // sscanf(buf, "%s %s %s", method, uri, version);
   
   serverfd = Open_clientfd("localhost","8000");
   parse_uri(uri, hostname, port, path);
@@ -134,9 +134,9 @@ int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHea
   sprintf(requestRHR,"GET /%s HTTP/1.0\r\n",path);
   while(strcmp(buf,"\r\n")){
     Rio_readlineb(&rio, buf, MAXLINE);
-    if (strncasecmp(buf,"Host",strlen("Host"))){
+    if (strncasecmp(buf,"Host",strlen("Host"))==0){
       sprintf(headerHR,buf,strlen(buf));
-      continue;
+      // printf("%s1111\n\n",buf);
     }
     
     else if (strncasecmp(buf,"user-Agent",strlen("user-Agent"))){
