@@ -51,6 +51,7 @@ FETCH_FILE="home.html"
 function download_proxy {
     cd $1
     curl --max-time ${TIMEOUT} --silent --proxy $4 --output $2 $3
+    #curl --silent --proxy http://localhost:8888/ --output home.html http://localhost:8000/
     (( $? == 28 )) && echo "Error: Fetch timed out after ${TIMEOUT} seconds"
     cd $HOME_DIR
 }
@@ -256,7 +257,7 @@ do
         echo "   Failure: Files differ."
     fi
 done
-
+s
 echo "Killing tiny and proxy"
 kill $tiny_pid 2> /dev/null
 wait $tiny_pid 2> /dev/null

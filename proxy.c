@@ -69,7 +69,7 @@ void doit(int fd)
   
   parse_uri(uri, hostname, port, path);
 
-  serverfd = Open_clientfd("localhost","8000");
+  serverfd = Open_clientfd(hostname,port);
   Rio_readinitb(&server_rio, serverfd);
   make_header(hostname,port,path,rio,makeHeader);
   printf("%s",makeHeader);
@@ -78,7 +78,7 @@ void doit(int fd)
   size_t n;
   while((n = Rio_readlineb(&server_rio, server_buf, MAXLINE)) != 0) {
     printf("Proxy received %d bytes from server and sent to client\n", n);
-    Rio_writen(fd, server_buf, n);
+    Rio_writen(fd, server_buf,n);
   }
   Close(serverfd);
 }
@@ -124,13 +124,18 @@ int parse_uri(char *uri, char *hostname, char *port, char* path)
     *pathP = '\0';
     sscanf(b_hostname, "%s", hostname);
     port ="8000";
-    sscanf(pathP+1,"%s",path);
+    sscanf(pathP+1,"%s",path);    
   }
+    printf("port : %s\n\n",port);
 
+  printf("hostname : %s\n\n",hostname);
+
+  printf("path : %s\n\n",path);
 }
 
 int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHeader){
   char *buf[MAXLINE], headerHR[MAXLINE], requestRHR[MAXLINE], otherHR[MAXLINE];
+  strcpy(buf,"");
   sprintf(requestRHR,"GET /%s HTTP/1.0\r\n",path);
   while(strcmp(buf,"\r\n")){
     Rio_readlineb(&rio, buf, MAXLINE);
