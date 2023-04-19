@@ -75,8 +75,9 @@ int doit(int fd)
   char server_buf[MAXLINE];
   rio_t rio,server_rio;
 
-  char content_body[MAXLINE], cache_buf[MAXLINE];
+  char content_body[MAXLINE];
   int content_length=0;
+
 
   /* Read request line and headers */
   Rio_readinitb(&rio, fd);
@@ -87,14 +88,19 @@ int doit(int fd)
   
   parse_uri(uri, hostname, port, path);
 
-  cacheStorage* find_cache = find_linked(path);
+  char* clientPath = (char*)malloc(MAXLINE);
+  strcpy(clientPath,path);
+
+  cacheStorage* find_cache = find_linked(clientPath);
  
   /*chache에 찾는 값이 있는 경우*/
   if(find_cache!=NULL){
     printf("cache : %s\n",find_cache->cache_path);
     delete_linked(find_cache);
     insert_linked(find_cache);
-    Rio_writen(serverfd,find_cache,strlen(find_cache));
+    printf("%s\n",find_cache->content_buf);
+    Rio_writen(fd,find_cache->content_buf,find_cache->content_length);
+
     printf("cache is in cache storage, cache update.\n");
     return 0;
   }
@@ -106,21 +112,25 @@ int doit(int fd)
   printf("%s",makeHeader);
   Rio_writen(serverfd,makeHeader,strlen(makeHeader));
 
+  char* cache_buf = (char*)malloc(MAX_OBJECT_SIZE);
+
+  strcpy(cache_buf, "");
+ 
   size_t n;
   while((n = Rio_readlineb(&server_rio, server_buf, MAXLINE)) != 0) {
     // printf("Proxy received %d bytes from server and sent to client\n", n);
     content_length+=n;
-    // strcat(cache_buf,server_buf);
+    strcat(cache_buf,server_buf);
     Rio_writen(fd, server_buf,n);
   }
 
   printf("Proxy received %d bytes from server and sent to client\n", content_length);
   
-  
   /*현재 값을 추가할 때, max 보다 큰 경우*/
+  
   /*현재 값을 추가할 때, max 보다 작은 경우*/
 
-  init_cache(path, content_length, cache_buf);
+  init_cache(clientPath, content_length, cache_buf);
 
   Close(serverfd);
 }
@@ -222,12 +232,16 @@ void *thread(void *vargp)
 /*start find linked list*/
 cacheStorage* find_linked(char *path){
   cacheStorage *bp;
+  
   for (bp = root; bp != NULL; bp = bp->nextStorage) {
-    if (bp->cache_path==path) {
-        return bp;
-        }
+    printf("path: %s\n",path);
+    printf("cache path: %s\n",bp->cache_path);
+    if (strcmp(bp->cache_path, path) == 0) {
+      
+      return bp;
     }
-    return NULL;
+  }
+  return NULL;
 }
 /*end find linked list*/
 
@@ -240,7 +254,7 @@ void init_cache(char* path, int content_length, char* body){
   cs->nextStorage = NULL; /*다음 노드 정보*/
   cs->prevStorage = NULL; /*이전 노드 정보*/
   cs->content_length = content_length; /*body 사이즈*/
-  printf("/%s init cache success\n",path);
+  printf("/%s init cache success\n\n",path);
   insert_linked(cs);
 }
 
