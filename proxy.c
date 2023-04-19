@@ -8,7 +8,6 @@
  */
 #include "csapp.h"
 #include <stdio.h>
-#include <time.h>
 
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
@@ -17,32 +16,28 @@
 /*cache struct create*/
 typedef struct cacheStorage {
   char* cache_path; /*경로 지정*/
-  rio_t* content_buf; /*body 내용 저장*/
+  char* content_buf; /*body 내용 저장*/
   struct cacheStorage* nextStorage; /*다음 노드 정보*/
   struct cacheStorage* prevStorage; /*이전 노드 정보*/
   int content_length; /*body 사이즈*/
-  time_t time_stamp;
 } cacheStorage;
+
+/*global root for cache*/
+cacheStorage *root = NULL;
 
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr =
     "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 "
     "Firefox/10.0.3\r\n";
 
-/*global root for cache*/
-char *root = NULL;
-
 int doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *hostname, char *port, char* path);
-int make_header(char* hostname, char* port, char* path, rio_t* rio, char* makeHeader);
+int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHeader);
 
 void *thread(void *vargp);
 
-void init_cache(char* path, int content_length, time_t t, rio_t* body);
-void insert_linked(cacheStorage *insertNode);
 cacheStorage* find_linked(char *path);
-void delete_linked(cacheStorage *deleteNode);
 
 int main(int argc, char **argv) {
   int listenfd, *connfd, server_listenfd;
@@ -50,9 +45,7 @@ int main(int argc, char **argv) {
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
   pthread_t tid;
-  /*cache root 위치*/
-  root = NULL;
-  
+
   /* Check command line args */
   if (argc != 2) {
     fprintf(stderr, "usage: %s <port>\n", argv[0]);
@@ -75,18 +68,15 @@ int main(int argc, char **argv) {
 
 int doit(int fd)
 {
-  int is_static, serverfd, server_connfd;
-  struct stat sbuf;
+  int is_static, serverfd;
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
   char filename[MAXLINE], cgiargs[MAXLINE];
-  char hostname[MAXLINE], port[MAXLINE], path[MAXLINE], makeHeader[MAXLINE];
+  char hostname[MAXLINE],port[MAXLINE],path[MAXLINE], makeHeader[MAXLINE];
   char server_buf[MAXLINE];
-  char content_length[MAXLINE],content_body[MAXLINE];
-  rio_t rio, server_rio;
-  struct sockaddr_storage serveraddr;
-  
-  time_t t;
-	t = time(NULL);
+  rio_t rio,server_rio;
+
+  char content_body[MAXLINE], cache_buf[MAXLINE];
+  int content_length=0;
 
   /* Read request line and headers */
   Rio_readinitb(&rio, fd);
@@ -96,42 +86,43 @@ int doit(int fd)
   sscanf(buf, "%s %s %s", method, uri, version);
   
   parse_uri(uri, hostname, port, path);
-  
-  cacheStorage* find_cache = find_linked(path);
 
-  /*캐시에 찾는 값이 있는 경우*/
+  cacheStorage* find_cache = find_linked(path);
+ 
+  /*chache에 찾는 값이 있는 경우*/
   if(find_cache!=NULL){
-    find_cache->time_stamp = t;
+    printf("cache : %s\n",find_cache->cache_path);
     delete_linked(find_cache);
     insert_linked(find_cache);
+    Rio_writen(serverfd,find_cache,strlen(find_cache));
+    printf("cache is in cache storage, cache update.\n");
+    return 0;
   }
 
-  /*캐시에 찾는 값이 없는 경우*/
-  else{
-    serverfd = Open_clientfd(hostname,port);
-    make_header(hostname,port,path,&rio,makeHeader);
-    printf("%s",makeHeader);
-    Rio_writen(serverfd,makeHeader,strlen(makeHeader));
-    
-    
-    Rio_readinitb(&server_rio, serverfd);
-    size_t n;
-    while((n = Rio_readlineb(serverfd, server_buf, MAXLINE)) != 0) {
-      if (!strncasecmp(server_buf,"Content-length:",strlen("Content-length:"))){
-      strcpy(content_length,server_buf+16);
+  /*chache에 값이 없는 경우*/
+  serverfd = Open_clientfd(hostname,port);
+  Rio_readinitb(&server_rio, serverfd);
+  make_header(hostname,port,path,rio,makeHeader);
+  printf("%s",makeHeader);
+  Rio_writen(serverfd,makeHeader,strlen(makeHeader));
 
-    }
-    printf("Proxy received %d bytes from server and sent to client\n", n);
+  size_t n;
+  while((n = Rio_readlineb(&server_rio, server_buf, MAXLINE)) != 0) {
+    // printf("Proxy received %d bytes from server and sent to client\n", n);
+    content_length+=n;
+    // strcat(cache_buf,server_buf);
     Rio_writen(fd, server_buf,n);
-    }
-  // printf("%s\n\n",content_length);
-    Close(serverfd);
-    /*현재 값을 추가할 때, max 보다 큰 경우*/
-    init_cache(path, content_length, t, &server_rio);
-    /*현재 값을 추가할 때, max 보다 작은 경우*/
-
   }
+
+  printf("Proxy received %d bytes from server and sent to client\n", content_length);
   
+  
+  /*현재 값을 추가할 때, max 보다 큰 경우*/
+  /*현재 값을 추가할 때, max 보다 작은 경우*/
+
+  init_cache(path, content_length, cache_buf);
+
+  Close(serverfd);
 }
 
 /* 헤더를 읽고 무시 */
@@ -177,14 +168,9 @@ int parse_uri(char *uri, char *hostname, char *port, char* path)
     port ="8000";
     sscanf(pathP+1,"%s",path);    
   }
-    printf("port : %s\n\n",port);
-
-  printf("hostname : %s\n\n",hostname);
-
-  printf("path : %s\n\n",path);
 }
 
-int make_header(char* hostname, char* port, char* path, rio_t* rio, char* makeHeader){
+int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHeader){
   char *buf[MAXLINE], headerHR[MAXLINE], requestRHR[MAXLINE], otherHR[MAXLINE];
   strcpy(buf,"");
   sprintf(requestRHR,"GET /%s HTTP/1.0\r\n",path);
@@ -233,26 +219,6 @@ void *thread(void *vargp)
 }
 /* $end echoservertmain */
 
-/*캐시 리스트 저장*/
-void init_cache(char* path, int content_length, time_t t, rio_t* body){
-  /*init cache*/
-  cacheStorage *cs = (cacheStorage *)calloc(1, sizeof(cacheStorage));
-  cs->cache_path = path; /*경로 지정*/
-  cs->content_buf = body; /*body 내용 저장*/
-  cs->nextStorage = NULL; /*다음 노드 정보*/
-  cs->prevStorage = NULL; /*이전 노드 정보*/
-  cs->content_length = content_length; /*body 사이즈*/
-  cs->time_stamp = t; /*시간 정보*/
-  insert_linked(cs);
-}
-
-/*start insert linked list*/
-void insert_linked(cacheStorage *insertNode){
-    insertNode->nextStorage = root;
-    root = insertNode;
-}
-/*end insert linked list*/
-
 /*start find linked list*/
 cacheStorage* find_linked(char *path){
   cacheStorage *bp;
@@ -265,16 +231,40 @@ cacheStorage* find_linked(char *path){
 }
 /*end find linked list*/
 
+
+void init_cache(char* path, int content_length, char* body){
+  /*init cache*/
+  cacheStorage *cs = (cacheStorage *)calloc(1, sizeof(cacheStorage));
+  cs->cache_path = path; /*경로 지정*/
+  cs->content_buf = body; /*body 내용 저장*/
+  cs->nextStorage = NULL; /*다음 노드 정보*/
+  cs->prevStorage = NULL; /*이전 노드 정보*/
+  cs->content_length = content_length; /*body 사이즈*/
+  printf("/%s init cache success\n",path);
+  insert_linked(cs);
+}
+
+/*start insert linked list*/
+void insert_linked(cacheStorage *insertNode){
+    insertNode->nextStorage = root;
+    if (root!=NULL){
+        root->prevStorage = insertNode;
+    }
+    root = insertNode;
+}
+/*end insert linked list*/
+
 /*start delete linked list*/
 void delete_linked(cacheStorage *deleteNode){
-      if (deleteNode!=root){
-        deleteNode->prevStorage->nextStorage = deleteNode->nextStorage;
-        // 삭제 했는데 남은게 NULL 인 경우 
-        if (deleteNode->nextStorage!=NULL)
-            deleteNode->nextStorage->prevStorage = deleteNode->prevStorage;
+    if (deleteNode!=root){
+      deleteNode->prevStorage->nextStorage = deleteNode->nextStorage;
+      // 삭제 했는데 남은게 NULL이 아닌 경우 
+      if (deleteNode->nextStorage!=NULL)
+          deleteNode->nextStorage->prevStorage = deleteNode->prevStorage;
     //가장 최근 값
     }else{
         root = deleteNode->nextStorage;
     }
+
 }
 /*end delete linked list*/

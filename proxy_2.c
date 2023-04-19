@@ -22,6 +22,7 @@ int doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *hostname, char *port, char* path);
 int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHeader);
+void *thread(void *vargp);
 
 int main(int argc, char **argv) {
   int listenfd, *connfd, server_listenfd;
@@ -52,15 +53,12 @@ int main(int argc, char **argv) {
 
 int doit(int fd)
 {
-  int is_static, serverfd, server_connfd;
-  struct stat sbuf;
+  int is_static, serverfd;
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-  char filename[MAXLINE], cgiargs[MAXLINE],temp[MAXLINE];
+  char filename[MAXLINE], cgiargs[MAXLINE];
   char hostname[MAXLINE],port[MAXLINE],path[MAXLINE], makeHeader[MAXLINE];
-  char server_port[MAXLINE], server_hostname[MAXLINE], server_buf[MAXLINE];
+  char server_buf[MAXLINE];
   rio_t rio,server_rio;
-  socklen_t serverlen;
-  struct sockaddr_storage serveraddr;
 
   /* Read request line and headers */
   Rio_readinitb(&rio, fd);
@@ -129,11 +127,6 @@ int parse_uri(char *uri, char *hostname, char *port, char* path)
     port ="8000";
     sscanf(pathP+1,"%s",path);    
   }
-    printf("port : %s\n\n",port);
-
-  printf("hostname : %s\n\n",hostname);
-
-  printf("path : %s\n\n",path);
 }
 
 int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHeader){
