@@ -10,7 +10,8 @@
 #include <stdio.h>
 
 /* Recommended max cache and object sizes */
-#define MAX_CACHE_SIZE 1049000
+// #define MAX_CACHE_SIZE 1049000
+#define MAX_CACHE_SIZE 35000
 #define MAX_OBJECT_SIZE 102400
 
 /*cache struct create*/
@@ -24,6 +25,9 @@ typedef struct cacheStorage {
 
 /*global root for cache*/
 cacheStorage *root = NULL;
+
+/*total_size for cache*/
+int total_cachesize = 0;
 
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr =
@@ -78,7 +82,6 @@ int doit(int fd)
   char content_body[MAXLINE];
   int content_length=0;
 
-
   /* Read request line and headers */
   Rio_readinitb(&rio, fd);
   Rio_readlineb(&rio, buf, MAXLINE);
@@ -95,17 +98,17 @@ int doit(int fd)
  
   /*chache에 찾는 값이 있는 경우*/
   if(find_cache!=NULL){
-    printf("cache : %s\n",find_cache->cache_path);
+    // printf("cache : %s\n",find_cache->cache_path);
     delete_linked(find_cache);
     insert_linked(find_cache);
-    printf("%s\n",find_cache->content_buf);
+    // printf("%s\n",find_cache->content_buf);
     Rio_writen(fd,find_cache->content_buf,find_cache->content_length);
 
     printf("cache is in cache storage, cache update.\n");
     return 0;
   }
 
-  /*chache에 값이 없는 경우*/
+  /*chache에 찾는 값이 없는 경우*/
   serverfd = Open_clientfd(hostname,port);
   Rio_readinitb(&server_rio, serverfd);
   make_header(hostname,port,path,rio,makeHeader);
@@ -126,10 +129,15 @@ int doit(int fd)
 
   printf("Proxy received %d bytes from server and sent to client\n", content_length);
   
-  /*현재 값을 추가할 때, max 보다 큰 경우*/
-  
-  /*현재 값을 추가할 때, max 보다 작은 경우*/
 
+  /*현재 값을 추가할 때, max 보다 큰 경우*/
+  if (total_cachesize+content_length > MAX_CACHE_SIZE){
+    delete_tail();
+  }
+
+  /*현재 값을 추가할 때, max 보다 작은 경우*/
+  total_cachesize +=content_length;
+  printf("total_cache : %d\n",total_cachesize);
   init_cache(clientPath, content_length, cache_buf);
 
   Close(serverfd);
@@ -234,10 +242,10 @@ cacheStorage* find_linked(char *path){
   cacheStorage *bp;
   
   for (bp = root; bp != NULL; bp = bp->nextStorage) {
-    printf("path: %s\n",path);
-    printf("cache path: %s\n",bp->cache_path);
+    // printf("path: %s\n",path);
+    // printf("cache path: %s\n",bp->cache_path);
+    // strcmp == 0 인 경우 동일하다. 
     if (strcmp(bp->cache_path, path) == 0) {
-      
       return bp;
     }
   }
@@ -282,3 +290,20 @@ void delete_linked(cacheStorage *deleteNode){
 
 }
 /*end delete linked list*/
+
+/*start find tail list*/
+void delete_tail(){
+  cacheStorage* tail;
+  for(tail = root; tail!=NULL; tail = tail->nextStorage){
+    // printf("find tail : %s\n",tail->cache_path);
+    if (tail->nextStorage == NULL){
+      break;
+    }
+  }
+  total_cachesize-=tail->content_length;
+  tail->prevStorage->nextStorage = NULL;
+  // printf("삭제되는 path: %s\n",tail->cache_path);
+  // printf("갱신되는 path의 next값: %s, %s\n",tail->prevStorage->cache_path,tail->prevStorage->nextStorage);
+  free(tail);
+}
+/*end find tail list*/
