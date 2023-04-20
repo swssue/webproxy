@@ -24,7 +24,9 @@ int parse_uri(char *uri, char *hostname, char *port, char* path);
 int make_header(char* hostname, char* port, char* path, rio_t rio, char* makeHeader);
 
 int main(int argc, char **argv) {
+  // listenfd : client socket open, connfd : client connect, server_listenfd : server socket open
   int listenfd, connfd, server_listenfd;
+  
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;

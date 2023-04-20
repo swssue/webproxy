@@ -301,6 +301,7 @@ wait_for_port_use "${proxy_port}"
 nop_port=$(free_port)
 echo "Starting the blocking NOP server on port ${nop_port}"
 # ./nop-server.py ${nop_port} &> /dev/null &
+# ubuntu .py 확장자명 ./로 실행 x로 인해 ./ -> pyton3로 변경
 python3 nop-server.py ${nop_port} &> /dev/null &
 nop_pid=$!
 
@@ -388,7 +389,8 @@ download_proxy $NOPROXY_DIR ${FETCH_FILE} "http://localhost:${tiny_port}/${FETCH
 # See if the proxy fetch succeeded by comparing it with the original
 # file in the tiny directory
 diff -q ./tiny/${FETCH_FILE} ${NOPROXY_DIR}/${FETCH_FILE}  &> /dev/null
-diff -u ./tiny/${FETCH_FILE} ${NOPROXY_DIR}/${FETCH_FILE}
+# fail check option : -u
+# diff -u ./tiny/${FETCH_FILE} ${NOPROXY_DIR}/${FETCH_FILE}
 if [ $? -eq 0 ]; then
     cacheScore=${MAX_CACHE}
     echo "Success: Was able to fetch tiny/${FETCH_FILE} from the cache."
